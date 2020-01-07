@@ -5,95 +5,64 @@ using System.Text;
 
 namespace CredentialManagement
 {
-    public class VistaPrompt: BaseCredentialsPrompt
+    public class CredentialsPrompt: BaseCredentialsPrompt
     {
         string _domain;
 
-        public VistaPrompt()
-        {
-            Title = "Please provide credentials";
-        }
+        public CredentialsPrompt() => Title = "Please provide credentials";
 
         public string Domain
         {
-            get
-            {
-                CheckNotDisposed();
-                return _domain;
-            }
+            get => _domain;
             set
             {
-                CheckNotDisposed();
                 if (string.IsNullOrEmpty(value))
                 {
-                    throw new ArgumentNullException("value");
+                    throw new ArgumentNullException(nameof(value));
                 }
                 _domain = value;
             }
         }
         public override bool ShowSaveCheckBox
         {
-            get
-            {
-                CheckNotDisposed();
-                return 0 != ((int)NativeMethods.WINVISTA_CREDUI_FLAGS.CREDUIWIN_CHECKBOX & DialogFlags);
-            }
-            set
-            {
-                CheckNotDisposed();
-                AddFlag(value, (int)NativeMethods.WINVISTA_CREDUI_FLAGS.CREDUIWIN_CHECKBOX);
-            }
+            get => 0 != ((int)NativeMethods.WINVISTA_CREDUI_FLAGS.CREDUIWIN_CHECKBOX & DialogFlags);
+            set => AddFlag(value, (int)NativeMethods.WINVISTA_CREDUI_FLAGS.CREDUIWIN_CHECKBOX);
         }
         public override bool GenericCredentials
         {
-            get
-            {
-                CheckNotDisposed();
-                return 0 != ((int)NativeMethods.WINVISTA_CREDUI_FLAGS.CREDUIWIN_GENERIC & DialogFlags);
-            }
-            set
-            {
-                CheckNotDisposed();
-                AddFlag(value, (int)NativeMethods.WINVISTA_CREDUI_FLAGS.CREDUIWIN_GENERIC);
-            }
+            get => 0 != ((int)NativeMethods.WINVISTA_CREDUI_FLAGS.CREDUIWIN_GENERIC & DialogFlags);
+            set => AddFlag(value, (int)NativeMethods.WINVISTA_CREDUI_FLAGS.CREDUIWIN_GENERIC);
         }
 
         public override DialogResult ShowDialog(IntPtr owner)
         {
-            CheckNotDisposed();
-
             if (string.IsNullOrEmpty(Title) && string.IsNullOrEmpty(Message))
             {
                 throw new InvalidOperationException("Title or Message should always be set.");
             }
 
-            if (!IsWinVistaOrHigher)
-            {
-                throw new InvalidOperationException("This Operating System does not support this prompt.");
-            }
-
             uint authPackage = 0;
             IntPtr outCredBuffer;
             uint outCredSize;
-            IntPtr inCredBuffer = IntPtr.Zero;
-            int inCredBufferSize = 0;
+            var inCredBuffer = IntPtr.Zero;
+            var inCredBufferSize = 0;
 
-            bool persist = SaveChecked;
+            var persist = SaveChecked;
 
-            NativeMethods.CREDUI_INFO credUI = CreateCREDUI_INFO(owner);
+            var credUI = CreateCREDUI_INFO(owner);
 
-            if (!string.IsNullOrEmpty(Username) || !string.IsNullOrEmpty(SecureStringHelper.CreateString(SecurePassword)))
+            if (!string.IsNullOrEmpty(Username) || !string.IsNullOrEmpty(Password))
             {
                 // This seems to be very hacky but don't know a better way to do it yet
                 // Call this method with the same credentials with the empty credentials buffer so that we can get it's size first
                 // but it throws an error because the buffer is too small. So we'll re-initialize the buffer with correct size
                 // and call again to populate the buffer this time.
-                NativeMethods.CredPackAuthenticationBuffer(0, new StringBuilder(Username), new StringBuilder(SecureStringHelper.CreateString(SecurePassword)), inCredBuffer, ref inCredBufferSize);
+                NativeMethods.CredPackAuthenticationBuffer(0, new StringBuilder(Username), new StringBuilder(Password), inCredBuffer, ref inCredBufferSize);
                 if (Marshal.GetLastWin32Error() == 122)
                 {
                     // returned from prior method call and we now should have a valid size for the buffer
                     inCredBuffer = Marshal.AllocCoTaskMem(inCredBufferSize);
-                    if (!NativeMethods.CredPackAuthenticationBuffer(0, new StringBuilder(Username), new StringBuilder(SecureStringHelper.CreateString(SecurePassword)), inCredBuffer, ref inCredBufferSize))
+                    if (!NativeMethods.CredPackAuthenticationBuffer(0, new StringBuilder(Username), new StringBuilder(Password), inCredBuffer, ref inCredBufferSize))
                     {
                         throw new Win32Exception(Marshal.GetLastWin32Error(), "There was an issue with the given Username or Password.");
                     }
@@ -136,15 +105,15 @@ namespace CredentialManagement
                     throw new InvalidOperationException("Invalid properties were specified.", new Win32Exception(Marshal.GetLastWin32Error()));
             }
 
-            int maxUsername = 1000;
-            int maxPassword = 1000;
-            int maxDomain = 1000;
+            var maxUsername = 1000;
+            var maxPassword = 1000;
+            var maxDomain = 1000;
 
-            StringBuilder usernameBuffer = new StringBuilder(1000);
-            StringBuilder passwordBuffer = new StringBuilder(1000);
-            StringBuilder domainBuffer = new StringBuilder(1000);
+            var usernameBuffer = new StringBuilder(1000);
+            var passwordBuffer = new StringBuilder(1000);
+            var domainBuffer = new StringBuilder(1000);
 
-            bool result = NativeMethods.CredUnPackAuthenticationBuffer(0, outCredBuffer, outCredSize,
+            var result = NativeMethods.CredUnPackAuthenticationBuffer(0, outCredBuffer, outCredSize,
                                                                        usernameBuffer,
                                                                        ref maxUsername, domainBuffer,
                                                                        ref maxDomain,
@@ -163,15 +132,6 @@ namespace CredentialManagement
             }
 
             return DialogResult.OK;
-        }
-
-        bool IsWinVistaOrHigher
-        {
-            get
-            {
-                OperatingSystem OS = Environment.OSVersion;
-                return (OS.Platform == PlatformID.Win32NT) && (OS.Version.Major >= 6);
-            }
         }
     }
 }

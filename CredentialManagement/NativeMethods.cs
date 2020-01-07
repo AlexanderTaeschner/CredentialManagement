@@ -5,7 +5,7 @@ using Microsoft.Win32.SafeHandles;
 
 namespace CredentialManagement
 {
-    public class NativeMethods
+    internal static class NativeMethods
     {
 
         public const int CREDUI_MAX_USERNAME_LENGTH = 513;
@@ -37,7 +37,7 @@ namespace CredentialManagement
 
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        public struct CREDUI_INFO
+        internal struct CREDUI_INFO
         {
             public int cbSize;
             public IntPtr hwndParent;
@@ -141,7 +141,7 @@ namespace CredentialManagement
         internal static extern bool CredRead(string target, CredentialType type, int reservedFlag, out IntPtr CredentialPtr);
 
         [DllImport("Advapi32.dll", EntryPoint = "CredWriteW", CharSet = CharSet.Unicode, SetLastError = true)]
-        internal static extern bool CredWrite([In] ref CREDENTIAL userCredential, [In] UInt32 flags);
+        internal static extern bool CredWrite([In] ref CREDENTIAL userCredential, [In] uint flags);
 
         [DllImport("Advapi32.dll", EntryPoint = "CredFree", SetLastError = true)]
         internal static extern bool CredFree([In] IntPtr cred);
@@ -152,28 +152,22 @@ namespace CredentialManagement
         [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         internal static extern bool CredEnumerateW(string filter, int flag, out uint count, out IntPtr pCredentials);
 
-        [DllImport("credui.dll")]
-        internal static extern CredUIReturnCodes CredUIPromptForCredentials(ref CREDUI_INFO creditUR, string targetName, IntPtr reserved1, int iError, StringBuilder userName, int maxUserName, StringBuilder password, int maxPassword, [MarshalAs(UnmanagedType.Bool)] ref bool pfSave, int flags);
-
         [DllImport("credui.dll", CharSet = CharSet.Unicode)]
-        internal static extern CredUIReturnCodes CredUIPromptForWindowsCredentials(ref CREDUI_INFO notUsedHere, int authError, ref uint authPackage, IntPtr InAuthBuffer, uint InAuthBufferSize, out IntPtr refOutAuthBuffer, out uint refOutAuthBufferSize, ref bool fSave, int flags);
+        internal static extern CredUIReturnCodes CredUIPromptForWindowsCredentials(ref CREDUI_INFO uiInfo, int authError, ref uint authPackage, IntPtr InAuthBuffer, uint InAuthBufferSize, out IntPtr refOutAuthBuffer, out uint refOutAuthBufferSize, ref bool fSave, int flags);
 
         [DllImport("ole32.dll")]
         internal static extern void CoTaskMemFree(IntPtr ptr);
 
         [DllImport("credui.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        internal static extern Boolean CredPackAuthenticationBuffer(int dwFlags, StringBuilder pszUserName, StringBuilder pszPassword, IntPtr pPackedCredentials, ref int pcbPackedCredentials);
+        internal static extern bool CredPackAuthenticationBuffer(int dwFlags, StringBuilder pszUserName, StringBuilder pszPassword, IntPtr pPackedCredentials, ref int pcbPackedCredentials);
 
-        [DllImport("credui.dll", CharSet = CharSet.Auto)]
+        [DllImport("credui.dll", CharSet = CharSet.Unicode)]
         internal static extern bool CredUnPackAuthenticationBuffer(int dwFlags, IntPtr pAuthBuffer, uint cbAuthBuffer, StringBuilder pszUserName, ref int pcchMaxUserName, StringBuilder pszDomainName, ref int pcchMaxDomainame, StringBuilder pszPassword, ref int pcchMaxPassword);
 
         internal sealed class CriticalCredentialHandle : CriticalHandleZeroOrMinusOneIsInvalid
         {
             // Set the handle.
-            internal CriticalCredentialHandle(IntPtr preexistingHandle)
-            {
-                SetHandle(preexistingHandle);
-            }
+            internal CriticalCredentialHandle(IntPtr preexistingHandle) => SetHandle(preexistingHandle);
 
             internal CREDENTIAL GetCredential()
             {

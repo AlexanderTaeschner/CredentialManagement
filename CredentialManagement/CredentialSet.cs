@@ -7,10 +7,8 @@ using System.Runtime.InteropServices;
 
 namespace CredentialManagement
 {
-    public class CredentialSet: List<Credential>, IDisposable
+    public class CredentialSet : List<Credential>
     {
-        bool _disposed;
-
         public CredentialSet()
         {
         }
@@ -20,41 +18,12 @@ namespace CredentialManagement
         {
             if (string.IsNullOrEmpty(target))
             {
-                throw new ArgumentNullException("target");
+                throw new ArgumentNullException(nameof(target));
             }
             Target = target;
         }
 
         public string Target { get; set; }
-
-
-        public void Dispose()
-        {
-            Dispose(true);
-
-            // Prevent GC Collection since we have already disposed of this object
-            GC.SuppressFinalize(this);
-        }
-
-        ~CredentialSet()
-        {
-            Dispose(false);
-        }
-
-        private void Dispose(bool disposing)
-        {
-            if (!_disposed)
-            {
-                if (disposing)
-                {
-                    if (Count > 0)
-                    {
-                        ForEach(cred => cred.Dispose());
-                    }
-                }
-            }
-            _disposed = true;
-        }
 
         public CredentialSet Load()
         {
@@ -64,33 +33,31 @@ namespace CredentialManagement
 
         private void LoadInternal()
         {
-            uint count;
-
-            IntPtr pCredentials = IntPtr.Zero;
-            bool result = NativeMethods.CredEnumerateW(Target, 0, out count, out pCredentials);
+            var pCredentials = IntPtr.Zero;
+            var result = NativeMethods.CredEnumerateW(Target, 0, out var count, out pCredentials);
             if (!result)
             {
-                Trace.WriteLine(string.Format("Win32Exception: {0}", new Win32Exception(Marshal.GetLastWin32Error()).ToString()));
+                Trace.WriteLine("Win32Exception: " + new Win32Exception(Marshal.GetLastWin32Error()).ToString());
                 return;
             }
 
             // Read in all of the pointers first
-            IntPtr[] ptrCredList = new IntPtr[count];
-            for (int i = 0; i < count; i++)
+            var ptrCredList = new IntPtr[count];
+            for (var i = 0; i < count; i++)
             {
-                ptrCredList[i] = Marshal.ReadIntPtr(pCredentials, IntPtr.Size*i);
+                ptrCredList[i] = Marshal.ReadIntPtr(pCredentials, IntPtr.Size * i);
             }
 
             // Now let's go through all of the pointers in the list
             // and create our Credential object(s)
-            List<NativeMethods.CriticalCredentialHandle> credentialHandles =
+            var credentialHandles =
                 ptrCredList.Select(ptrCred => new NativeMethods.CriticalCredentialHandle(ptrCred)).ToList();
 
-            IEnumerable<Credential> existingCredentials = credentialHandles
+            var existingCredentials = credentialHandles
                 .Select(handle => handle.GetCredential())
                 .Select(nativeCredential =>
                             {
-                                Credential credential = new Credential();
+                                var credential = new Credential();
                                 credential.LoadInternal(nativeCredential);
                                 return credential;
                             });
